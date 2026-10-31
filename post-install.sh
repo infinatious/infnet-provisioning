@@ -77,6 +77,45 @@ EOF
     ;;
 esac
 
+install_infnet_root_ca() {
+  local url='http://certificates.infinatious.com/infinatious-root-ca.crt'
+  local want='5F:92:DF:75:78:38:1C:BF:AA:00:E3:66:98:8C:18:06:88:CE:EC:C2:89:5B:05:A7:64:42:AE:DC:E7:03:A0:65'
+  local tmp got
+
+  command -v openssl >/dev/null 2>&1 || { echo 'INFNET root CA: openssl not found, skipping.' >&2; return 0; }
+
+  tmp="$(mktemp)"
+  if ! curl -fsS --connect-timeout 5 --max-time 15 -o "${tmp}" "${url}" 2>/dev/null; then
+    echo 'INFNET root CA: certificates.infinatious.com not reachable, skipping.' >&2
+    rm -f "${tmp}"
+    return 0
+  fi
+
+  got="$(openssl x509 -in "${tmp}" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 || true)"
+  if [[ "${got}" != "${want}" ]]; then
+    echo "INFNET root CA: fingerprint mismatch (got '${got:-none}'), skipping." >&2
+    rm -f "${tmp}"
+    return 0
+  fi
+
+  case "${ID,,}" in
+    almalinux|rocky|centos)
+      install -m 0644 "${tmp}" /etc/pki/ca-trust/source/anchors/infinatious-root-ca.crt && update-ca-trust \
+        || echo 'INFNET root CA: install failed, skipping.' >&2
+      ;;
+    ubuntu|debian)
+      if command -v update-ca-certificates >/dev/null 2>&1; then
+        install -m 0644 "${tmp}" /usr/local/share/ca-certificates/infinatious-root-ca.crt && update-ca-certificates \
+          || echo 'INFNET root CA: install failed, skipping.' >&2
+      else
+        echo 'INFNET root CA: update-ca-certificates not found, skipping.' >&2
+      fi
+      ;;
+  esac
+  rm -f "${tmp}"
+}
+install_infnet_root_ca || true
+
 if command -v updatedb >/dev/null 2>&1; then
   updatedb || true
 fi
