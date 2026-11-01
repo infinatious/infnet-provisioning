@@ -4,7 +4,7 @@ Generic first-boot setup script. The only environment-specific part is an option
 
 ## post-install.sh
 
-Sets a colored shell prompt, installs base packages (git, curl, jq, htop, btop, vim, nfs, and so on), turns on automatic security updates, and sets up a status MOTD. Supports Ubuntu, Debian, AlmaLinux and Rocky.
+Sets a colored shell prompt, installs base packages (git, curl, jq, htop, btop, vim, nfs, and so on), turns on automatic security updates, and sets up a status MOTD. It also installs and enrolls the Wazuh agent (pinned version, group `container` or `vm`) when the INFNET manager is reachable; raise `version` in `install_wazuh_agent` after a manager upgrade. Supports Ubuntu, Debian, AlmaLinux and Rocky.
 
 It also tries to download the INFINATIOUS root CA from `http://certificates.infinatious.com/infinatious-root-ca.crt` and add it to the system trust store. The file is only installed if its SHA-256 fingerprint matches the one pinned in the script. If the host cannot be reached (for example off the lab network) or the fingerprint does not match, that step is skipped and the rest of the setup continues.
 
