@@ -118,9 +118,10 @@ install_infnet_root_ca || true
 
 # Installs and enrolls the Wazuh agent (INFNET manager). Best effort: skipped
 # when the manager's enrollment port is not reachable (off the lab network) or
-# an agent is already running. The version is pinned to the manager's and must
-# be raised after a manager upgrade; the package is held back and the Wazuh repo
-# disabled afterwards so system updates never move the agent past the manager.
+# an agent is already running. The package is held back and the Wazuh repo
+# disabled afterwards, so system updates never move the agent past the manager;
+# the manager upgrades its agents itself (daily remote upgrade to its own
+# version), so the version below only sets the starting point.
 # Group: "container" inside a container, else "vm" (both exist on the manager).
 install_wazuh_agent() {
   local manager='inf-10045.phxaz.infinatio.us' version='4.14.8' group
