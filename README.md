@@ -6,6 +6,8 @@ Generic first-boot setup script. The only environment-specific part is an option
 
 Sets a colored shell prompt, installs base packages (git, curl, jq, htop, btop, vim, nfs, and so on), turns on automatic security updates, and sets up a status MOTD. It also installs and enrolls the Wazuh agent (pinned version, group `container` or `vm`) when the INFNET manager is reachable; the manager keeps agents at its own version (daily remote upgrade). Supports Ubuntu, Debian, AlmaLinux and Rocky.
 
+If a `kauffpc` user exists, it adds the INFNET admin SSH public key to that user, gives it passwordless sudo, and turns off SSH password logins (key-only), after checking the sudoers and sshd configuration are valid.
+
 It also tries to download the INFINATIOUS root CA from `http://certificates.infinatious.com/infinatious-root-ca.crt` and add it to the system trust store. The file is only installed if its SHA-256 fingerprint matches the one pinned in the script. If the host cannot be reached (for example off the lab network) or the fingerprint does not match, that step is skipped and the rest of the setup continues.
 
 On a fresh install, as root:

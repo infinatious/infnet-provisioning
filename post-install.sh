@@ -77,6 +77,52 @@ EOF
     ;;
 esac
 
+# Admin access for kauffpc: installs the INFNET admin public key, passwordless
+# sudo, and turns off SSH password logins. Skipped when the kauffpc user does
+# not exist. Password logins are only disabled after the key is in place, and
+# the sshd config is validated before it is reloaded (open sessions stay up).
+setup_admin_access() {
+  local user='kauffpc'
+  local key='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCtIWE60jNhTAS/pcQBnV5MAMBzui9CNHhv3VUqVpBkCZq/c9Yt0OHzENq8FZkMWM7dQe/3+AFd+KCrRDTxPsnmNFIjw8lUUBMJgP6a9aKq8tidJi7+7ShboMHqkCGfALNXWeqIf67yG67o6SWJM+78k6f8Ie+2PCIKq/GRTpaH4mjOAHmRGH4ubiNAuL2CKRTk3MK6qyxaovCRA6WjyOSlb1qurZXQ1V/mh+Dqfo6aKMCNof9cdg5j6MneD8X7y+dG4Ge8Gy954n8ZggQwI9ifDxy71ok0GzKATMGb/O+Fwrt5wiMnMq6ct+HqP8XFYuxAl4ys4F3C68epPs4FbuwM5BWBXKOcpsKheG+I6EoXjfPDpqWioTgmNQQOP1v/Hzjw+GQNO8Bw3RK0snKZL9V5WWh9fe9Nnp532rhyTbWQIkUcskV84ToiGei3HyXdXiSy2aWoQlcM5+3dtILsw5czbW8Z9qULPexcR1DavVdFrI320bGzYu4J8T2LGoUGRqYWJapv2HQcZLDjJbXtFqm7PUKTRjXt483nSOqpXaPIhFlhEkm79zLtSAFA10P5LEmA8VwNXuPLKwtCdxj6SMLNwcXJ0djGniugoa2PHcO3g4zh38A5ZJBUx0JR30kJDxYxQ7VSeUHqvk9HBuJKVJ3LN0A6VOCfjcP76V2dT6nBJw== pk@inf-55135'
+  local home ak sudoers
+
+  home="$(getent passwd "${user}" | cut -d: -f6)"
+  if [[ -z "${home}" || ! -d "${home}" ]]; then
+    echo "Admin access: user ${user} not found, skipping."
+    return 0
+  fi
+
+  install -d -m 0700 -o "${user}" -g "${user}" "${home}/.ssh"
+  ak="${home}/.ssh/authorized_keys"
+  touch "${ak}"
+  grep -qxF "${key}" "${ak}" || printf '%s\n' "${key}" >> "${ak}"
+  chown "${user}:${user}" "${ak}"
+  chmod 600 "${ak}"
+
+  sudoers="/etc/sudoers.d/90-${user}"
+  printf '%s ALL=(ALL) NOPASSWD:ALL\n' "${user}" > "${sudoers}.tmp"
+  chmod 440 "${sudoers}.tmp"
+  if visudo -cf "${sudoers}.tmp" >/dev/null 2>&1; then
+    mv "${sudoers}.tmp" "${sudoers}"
+  else
+    rm -f "${sudoers}.tmp"
+    echo 'Admin access: sudoers file failed validation, not installed.' >&2
+  fi
+
+  if command -v sshd >/dev/null 2>&1 && [[ -d /etc/ssh/sshd_config.d ]]; then
+    # 10- sorts before cloud-init's 50-cloud-init.conf (sshd uses the first value it sees).
+    printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\n' > /etc/ssh/sshd_config.d/10-infnet-keys-only.conf
+    if sshd -t 2>/dev/null; then
+      systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+    else
+      rm -f /etc/ssh/sshd_config.d/10-infnet-keys-only.conf
+      echo 'Admin access: sshd config test failed, password logins left as is.' >&2
+    fi
+  fi
+  echo "Admin access: key, passwordless sudo and key-only SSH set for ${user}."
+}
+setup_admin_access || echo 'Admin access: setup failed, continuing.' >&2
+
 install_infnet_root_ca() {
   local url='http://certificates.infinatious.com/infinatious-root-ca.crt'
   local want='5F:92:DF:75:78:38:1C:BF:AA:00:E3:66:98:8C:18:06:88:CE:EC:C2:89:5B:05:A7:64:42:AE:DC:E7:03:A0:65'
